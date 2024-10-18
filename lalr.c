@@ -1,5 +1,3 @@
-/*CS22B1083 Dharun Thota*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,6 +80,7 @@ char *first(char *set, char c){
 }
 
 void printItems(){
+    printf("Number of items: %d\n", n_items);
     for(int i=0; i<n_items; i++){
         if(items[i].merged) continue;
         printf("Item %d - %d\n", i, items[i].index);
@@ -105,143 +104,6 @@ void print(){
         printf("%c->%s\n", prod[i].lhs, prod[i].rhs);
     }
 }
-
-// void closure(ItemSet *temp){
-//     int i, k = temp->size;
-//     for(i=0; i<k; i++){
-//         if(isNonTerminal(temp->item[i].rhs[temp->item[i].dot])){
-//             Item t;
-//             for(int j=1; j<=n; j++){
-//                 if(prod[j].lhs == temp->item[i].rhs[temp->item[i].dot]){
-//                     t.lhs = prod[j].lhs;
-//                     strcpy(t.rhs, prod[j].rhs);
-//                     t.dot = 0;
-
-//                     char set[10];
-//                     set[0] = '\0';
-//                     if(temp->item[i].dot+1 >= strlen(temp->item[i].rhs)){
-//                         strcpy(t.lookahead, temp->item[i].lookahead);
-//                     }
-//                     else{
-//                         first(set, temp->item[i].rhs[temp->item[i].dot+1]);
-//                         strcpy(t.lookahead, set);
-//                     }
-//                     temp->item[k] = t;
-//                     k++;
-//                     temp->size++;
-//                 }
-//             }
-//         }
-//     }
-//     temp->merged = 0;
-//     temp->index = n_items;
-//     items[n_items] = *temp;
-//     n_items++;
-// }
-
-void closure(ItemSet *temp){
-    int i = 0; // Use a loop variable to traverse the item set
-    while (i < temp->size) { // Iterate over the current items in the set
-        if(isNonTerminal(temp->item[i].rhs[temp->item[i].dot])) { // Non-terminal after dot
-            Item t;
-            for (int j = 1; j <= n; j++) { // Look for productions with this non-terminal as LHS
-                if (prod[j].lhs == temp->item[i].rhs[temp->item[i].dot]) {
-                    // Prepare new item based on production
-                    t.lhs = prod[j].lhs;
-                    strcpy(t.rhs, prod[j].rhs);
-                    t.dot = 0;
-
-                    // Compute lookaheads
-                    char set[10];
-                    set[0] = '\0';
-                    if (temp->item[i].dot + 1 >= strlen(temp->item[i].rhs)) {
-                        strcpy(t.lookahead, temp->item[i].lookahead); // Use lookahead from the item
-                    } else {
-                        first(set, temp->item[i].rhs[temp->item[i].dot + 1]);
-                        strcpy(t.lookahead, set);
-                    }
-
-                    // Check if this item is already present
-                    int found = 0;
-                    for (int k = 0; k < temp->size; k++) {
-                        if (temp->item[k].lhs == t.lhs && strcmp(temp->item[k].rhs, t.rhs) == 0 && strcmp(temp->item[k].lookahead, t.lookahead) == 0) {
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if (!found) { // Add the new item if not already present
-                        temp->item[temp->size++] = t;
-                    }
-                }
-            }
-        }
-        i++;
-    }
-    temp->merged = 0;
-    temp->index = n_items;
-    items[n_items] = *temp;
-    n_items++;
-}
-
-
-// void goTo(ItemSet* src, char symbol) {
-//     // Initialize the destination item set
-//     ItemSet dst;
-//     dst.size = 0;
-    
-//     for (int i = 0; i < src->size; i++) {
-//         // Check if the dot is before the symbol
-//         if (src->item[i].rhs[src->item[i].dot] == symbol) {
-//             Item newItem;
-//             newItem.lhs = src->item[i].lhs;
-//             strcpy(newItem.rhs, src->item[i].rhs);
-//             strcpy(newItem.lookahead, src->item[i].lookahead);
-//             newItem.dot = src->item[i].dot + 1;
-
-//             dst.item[dst.size++] = newItem;
-//         }
-//     }
-
-//     // Apply closure on the destination item set
-//     closure(&dst);
-
-//     // Add the transition to the transition table
-//     transitions[n_transitions].from = src->index; 
-//     transitions[n_transitions].symbol = symbol;
-//     transitions[n_transitions].to = dst.index; 
-//     n_transitions++;
-// }
-
-void goTo(ItemSet* src, char symbol) {
-    // Initialize the destination item set
-    ItemSet dst;
-    dst.size = 0;
-    
-    for (int i = 0; i < src->size; i++) {
-        // Check if the dot is before the symbol
-        if (src->item[i].rhs[src->item[i].dot] == symbol) {
-            Item newItem;
-            newItem.lhs = src->item[i].lhs;
-            strcpy(newItem.rhs, src->item[i].rhs);
-            strcpy(newItem.lookahead, src->item[i].lookahead);
-            newItem.dot = src->item[i].dot + 1;
-
-            dst.item[dst.size++] = newItem;
-        }
-    }
-
-    // Apply closure only if the destination set is non-empty
-    if (dst.size > 0) {
-        closure(&dst);
-
-        // Add the transition to the transition table
-        transitions[n_transitions].from = src->index; 
-        transitions[n_transitions].symbol = symbol;
-        transitions[n_transitions].to = dst.index; 
-        n_transitions++;
-    }
-}
-
 
 int areCoresEqual(ItemSet *set1, ItemSet *set2) {
     if (set1->size != set2->size) return 0;
@@ -289,6 +151,98 @@ void mergeStates() {
     }
 }
 
+void closure(ItemSet *temp) {
+    int i = 0; // Loop over items in the current set
+    while (i < temp->size) { 
+        if (isNonTerminal(temp->item[i].rhs[temp->item[i].dot])) {
+            // Iterate over all productions to find matching non-terminals
+            for (int j = 0; j <= n; j++) {
+                if (prod[j].lhs == temp->item[i].rhs[temp->item[i].dot]) {
+                    Item t;
+                    // Create a new item based on the production
+                    t.lhs = prod[j].lhs;
+                    strcpy(t.rhs, prod[j].rhs);
+                    t.dot = 0;  // Dot starts at 0 for the new item
+                    
+                    // Compute lookaheads
+                    char set[10];
+                    set[0] = '\0';
+                    if (temp->item[i].dot + 1 >= strlen(temp->item[i].rhs)) {
+                        strcpy(t.lookahead, temp->item[i].lookahead); // Inherit the lookahead from the current item
+                    } else {
+                        first(set, temp->item[i].rhs[temp->item[i].dot + 1]);
+                        strcpy(t.lookahead, set);
+                    }
+
+                    // Check if the new item is already present in the set
+                    int found = 0;
+                    for (int k = 0; k < temp->size; k++) {
+                        // Compare by lhs, rhs, lookahead, and dot position
+                        if (temp->item[k].lhs == t.lhs && 
+                            strcmp(temp->item[k].rhs, t.rhs) == 0 && 
+                            temp->item[k].dot == t.dot) {  // Now also compare the dot position
+                            
+                            // Add any new lookahead symbols if they are not already present
+                            for (int m = 0; t.lookahead[m] != '\0'; m++) {
+                                if (!strchr(temp->item[k].lookahead, t.lookahead[m])) {
+                                    strncat(temp->item[k].lookahead, &t.lookahead[m], 1);
+                                }
+                            }
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    // If the item is not found, add it as a new item
+                    if (!found) {
+                        temp->item[temp->size++] = t;
+                    }
+                }
+            }
+        }
+        i++;
+    }
+
+    // Update set meta-data after closure
+    temp->merged = 0;
+    temp->index = n_items;
+    //printItem(temp);
+    items[n_items] = *temp;
+    n_items++;
+}
+
+
+void goTo(ItemSet* src, char symbol) {
+    // Initialize the destination item set
+    ItemSet dst;
+    dst.size = 0;
+    
+    for (int i = 0; i < src->size; i++) {
+        // Check if the dot is before the symbol
+        if (src->item[i].rhs[src->item[i].dot] == symbol) {
+            Item newItem;
+            newItem.lhs = src->item[i].lhs;
+            strcpy(newItem.rhs, src->item[i].rhs);
+            strcpy(newItem.lookahead, src->item[i].lookahead);
+            newItem.dot = src->item[i].dot + 1;
+
+            dst.item[dst.size++] = newItem;
+        }
+    }
+
+    // Apply closure only if the destination set is non-empty
+    if (dst.size > 0) {
+        closure(&dst);
+
+        // Add the transition to the transition table
+        transitions[n_transitions].from = src->index; 
+        transitions[n_transitions].symbol = symbol;
+        transitions[n_transitions].to = dst.index; 
+        n_transitions++;
+        mergeStates();
+    }
+}
+
 void init(){
     ItemSet temp;
     temp.item[0].lhs = 'Z';
@@ -300,13 +254,13 @@ void init(){
     closure(&temp);
     for(int i=0; i<n_items; i++){
         for(int j=0; j<items[i].size; j++){
-            if(items[i].item[j].dot < strlen(items[i].item[j].rhs)){
+            if(items[i].item[j].dot < strlen(items[i].item[j].rhs) && items[i].merged == 0){
                 char next = items[i].item[j].rhs[items[i].item[j].dot];
                 goTo(&items[i], next);
             }
         }
     }
-    mergeStates();
+    //mergeStates();
 }
 
 void createParseTable(){
@@ -329,11 +283,19 @@ int main(){
     prod[3].lhs = 'B';
     strcpy(prod[3].rhs, "b");
     char* start = "A";
+
+    // prod[1].lhs = 'S';
+    // strcpy(prod[1].rhs, "AB");
+    // prod[2].lhs = 'A';
+    // strcpy(prod[2].rhs, "a");
+    // prod[3].lhs = 'B';
+    // strcpy(prod[3].rhs, "b");
+    // char* start = "S";
+
     //scanf(" %c", start);
     prod[0].lhs = 'Z';
     strcpy(prod[0].rhs, start);
-    //closure(0);
     init();
     printItems();
-    printTransitions();
+    // printTransitions();
 }
