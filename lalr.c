@@ -31,8 +31,6 @@ typedef struct {
 } Transition;
 
 typedef struct{
-    char symbol;
-    int state;
     char action[10];
     int next;
 } Action;
@@ -40,6 +38,7 @@ typedef struct{
 Production prod[MAX];
 ItemSet items[MAX];
 Transition transitions[MAX * 5];
+Action action[MAX][MAX];
 
 int n;
 int n_items = 0;
@@ -92,7 +91,17 @@ void printItems(){
     }
 }
 
+void printItem(ItemSet *set){
+    printf("Item %d\n", set->index);
+    printf("Size: %d\n", set->size);
+    for(int j=0; j<set->size; j++){
+        printf("%c->%s, %s - %d\n", set->item[j].lhs, set->item[j].rhs, set->item[j].lookahead, set->item[j].dot);
+    }
+    printf("\n");
+}
+
 void printTransitions(){
+    printf("Numer of transitions: %d\n", n_transitions);
     for(int i=0; i<n_transitions; i++){
         printf("%d, %c -> %d\n", transitions[i].from, transitions[i].symbol, transitions[i].to);
     }
@@ -211,7 +220,6 @@ void closure(ItemSet *temp) {
     n_items++;
 }
 
-
 void goTo(ItemSet* src, char symbol) {
     // Initialize the destination item set
     ItemSet dst;
@@ -263,8 +271,133 @@ void init(){
     //mergeStates();
 }
 
-void createParseTable(){
-    return;
+void removeMergedItems(){
+    ItemSet temp[MAX];
+    int j = 0;
+    for(int i=0; i<n_items; i++){
+        if(items[i].merged == 0){
+            temp[j++] = items[i];
+        }
+    }
+    n_items = j;
+    memset(items, 0, sizeof(items));
+    for(int i=0; i<n_items; i++){
+        items[i] = temp[i];
+    }
+}
+
+void getTermNonTerm(char *term){
+    term[0] = '\0';
+    for(int i=1; i<=n; i++){
+        for(int k=0; prod[i].rhs[k]!='\0'; k++){
+            if(!isNonTerminal(prod[i].rhs[k])){
+                addToSet(term, prod[i].rhs[k]);
+            }
+        }
+    }
+    addToSet(term, '$');
+    for(int i=1; i<=n; i++){
+        addToSet(term, prod[i].lhs);
+    }
+}
+
+int getIndex(char *term, char c){
+    for(int i=0; term[i]!='\0'; i++){
+        if(term[i] == c){
+            return i;
+        }
+    }
+}
+
+int getProdIndex(Item item){
+    for(int i=1; i<=n; i++){
+        if(prod[i].lhs == item.lhs && strcmp(prod[i].rhs, item.rhs) == 0){
+            return i;
+        }
+    }
+}
+
+void printActionTable(char *term, int numStates) {
+    int colWidth = 10;  // Fixed width for each column
+    printf("\nAction Table:\n");
+
+    // Print the header row with terminals and non-terminals
+    printf("State\t");
+    for (int i = 0; term[i] != '\0'; i++) {
+        printf("%c\t", term[i]);
+    }
+    printf("\n");
+
+    // Separator for header and body
+    for (int i = 0; i <= strlen(term); i++) {
+        printf("-------");
+    }
+    printf("\n");
+
+    // Print each state's actions
+    for (int state = 0; state < numStates; state++) {
+        // Print state number
+        printf("%d\t", state);
+
+        // Print the actions for each terminal/non-terminal
+        for (int i = 0; term[i] != '\0'; i++) {
+            if (strcmp(action[state][i].action, "") == 0) {
+                // Empty cell if no action
+                printf(" \t");
+            } else if (isNonTerminal(term[i])) {
+                // If the symbol is a non-terminal, just print the state number for "goto" actions
+                printf("%d\t", action[state][i].next);
+            } else if (strcmp(action[state][i].action, "shift") == 0) {
+                // Shift action for terminals (no gap between "s" and state number)
+                printf("S%d\t", action[state][i].next);
+            } else if (strcmp(action[state][i].action, "reduce") == 0) {
+                // Reduce action for terminals (no gap between "r" and production number)
+                printf("r%d\t", action[state][i].next);
+            } else if (strcmp(action[state][i].action, "accept") == 0) {
+                // Accept action for terminals
+                printf("acc\t");
+            }
+        }
+        printf("\n");
+    }
+}
+
+void createActionTable(){
+    char term[MAX];
+    getTermNonTerm(term);
+
+    memset(action, 0, sizeof(action));
+
+    //add shift actions
+    for(int i=0; i<n_transitions; i++){
+        Action a;
+        int index = getIndex(term, transitions[i].symbol);
+        a.next = transitions[i].to;
+        strcpy(a.action, "shift");
+        action[transitions[i].from][index] = a;
+    }
+    
+    //add reduce actions
+    for(int i=0; i<n_items; i++){
+        if(items[i].size == 1 && items[i].item[0].dot == strlen(items[i].item[0].rhs)){
+            Item item = items[i].item[0];
+            for(int j=0; j<strlen(item.lookahead); j++){
+                int index = getIndex(term, item.lookahead[j]);
+                Action a;
+                strcpy(a.action, "reduce");
+                if(item.lhs == 'Z'){
+                    strcpy(a.action, "accept");
+                }
+                else{
+                    int p = getProdIndex(item);
+                    a.next = p;
+                }
+                action[i][index] = a;
+            }
+        }
+    }
+
+    printActionTable(term, n_items);
 }
 
 int main(){
@@ -276,26 +409,28 @@ int main(){
     // }
     // printf("Enter start symbol: ");
     n = 3;
-    prod[1].lhs = 'A';
-    strcpy(prod[1].rhs, "BB");
-    prod[2].lhs = 'B';
-    strcpy(prod[2].rhs, "aB");
-    prod[3].lhs = 'B';
-    strcpy(prod[3].rhs, "b");
-    char* start = "A";
-
-    // prod[1].lhs = 'S';
-    // strcpy(prod[1].rhs, "AB");
-    // prod[2].lhs = 'A';
-    // strcpy(prod[2].rhs, "a");
+    // prod[1].lhs = 'A';
+    // strcpy(prod[1].rhs, "BB");
+    // prod[2].lhs = 'B';
+    // strcpy(prod[2].rhs, "aB");
     // prod[3].lhs = 'B';
     // strcpy(prod[3].rhs, "b");
-    // char* start = "S";
+    // char* start = "A";
+
+    prod[1].lhs = 'S';
+    strcpy(prod[1].rhs, "AB");
+    prod[2].lhs = 'A';
+    strcpy(prod[2].rhs, "a");
+    prod[3].lhs = 'B';
+    strcpy(prod[3].rhs, "b");
+    char* start = "S";
 
     //scanf(" %c", start);
     prod[0].lhs = 'Z';
     strcpy(prod[0].rhs, start);
     init();
-    printItems();
+    removeMergedItems();
+    // printItems();
     // printTransitions();
+    createActionTable();
 }
