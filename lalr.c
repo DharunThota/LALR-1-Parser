@@ -39,6 +39,7 @@ Production prod[MAX];
 ItemSet items[MAX];
 Transition transitions[MAX * 5];
 Action action[MAX][MAX];
+char term[MAX];
 
 int n;
 int n_items = 0;
@@ -268,7 +269,6 @@ void init(){
             }
         }
     }
-    //mergeStates();
 }
 
 void removeMergedItems(){
@@ -276,6 +276,7 @@ void removeMergedItems(){
     int j = 0;
     for(int i=0; i<n_items; i++){
         if(items[i].merged == 0){
+            //items[i].index = j;
             temp[j++] = items[i];
         }
     }
@@ -286,7 +287,7 @@ void removeMergedItems(){
     }
 }
 
-void getTermNonTerm(char *term){
+void getTermNonTerm(){
     term[0] = '\0';
     for(int i=1; i<=n; i++){
         for(int k=0; prod[i].rhs[k]!='\0'; k++){
@@ -301,7 +302,7 @@ void getTermNonTerm(char *term){
     }
 }
 
-int getIndex(char *term, char c){
+int getIndex(char c){
     for(int i=0; term[i]!='\0'; i++){
         if(term[i] == c){
             return i;
@@ -363,15 +364,14 @@ void printActionTable(char *term, int numStates) {
 }
 
 void createActionTable(){
-    char term[MAX];
-    getTermNonTerm(term);
+    getTermNonTerm();
 
     memset(action, 0, sizeof(action));
 
     //add shift actions
     for(int i=0; i<n_transitions; i++){
         Action a;
-        int index = getIndex(term, transitions[i].symbol);
+        int index = getIndex(transitions[i].symbol);
         a.next = transitions[i].to;
         strcpy(a.action, "shift");
         action[transitions[i].from][index] = a;
@@ -382,7 +382,7 @@ void createActionTable(){
         if(items[i].size == 1 && items[i].item[0].dot == strlen(items[i].item[0].rhs)){
             Item item = items[i].item[0];
             for(int j=0; j<strlen(item.lookahead); j++){
-                int index = getIndex(term, item.lookahead[j]);
+                int index = getIndex(item.lookahead[j]);
                 Action a;
                 strcpy(a.action, "reduce");
                 if(item.lhs == 'Z'){
@@ -396,8 +396,72 @@ void createActionTable(){
             }
         }
     }
-
     printActionTable(term, n_items);
+}
+
+void printParseState(char *stack, int top, char *str, int lookahead) {
+    printf("Stack: ");
+    for (int i = 0; i <= top; i++) {
+        printf("%c", stack[i]);
+    }
+    printf("\tInput: ");
+    for (int i = lookahead; str[i] != '\0'; i++) {
+        printf("%c", str[i]);
+    }
+
+    printf("\n");
+
+
+}
+
+int parse(char *str){
+    char stack[MAX];
+    int top = 0;
+    int lookahead = 0;
+    int len = strlen(str);
+    str[len++] = '$';
+    str[len] = '\0';
+    printf("%s %d\n", str, len);
+    stack[top] = '$';
+    stack[++top] = '0';
+
+    while(lookahead < len){
+        printParseState(stack, top, str, lookahead);
+        char t = stack[top];
+        char symbol = str[lookahead];
+        Action a;
+        if(isdigit(t)){
+            int index = getIndex(symbol);
+            a = action[t - '0'][index];
+            //printf("%s %d\n", a.action, a.next);
+            if(strcmp(a.action, "shift") == 0){
+                stack[++top] = str[lookahead];
+                stack[++top] = a.next + '0';
+                lookahead++;
+            }
+            else if(strcmp(a.action, "reduce") == 0){
+                int pop_len = 2 * strlen(prod[a.next].rhs);
+                for(int i=0; i<pop_len; i++){
+                    top--;
+                }
+                stack[++top] = prod[a.next].lhs;
+            }
+            else if(strcmp(a.action, "accept") == 0){
+                return 1;
+            }
+            else{
+                return 0;
+            }
+        }
+        else if(isNonTerminal(t)){
+            printf("Non-terminal\n");
+            int prev = top - 1;
+            int index = getIndex(t);
+            printf("%c %d %s - %d\n", stack[prev], index, action[stack[prev] - '0'][index].action ,action[stack[prev] - '0'][index].next);
+            stack[++top] = action[stack[prev] - '0'][index].next + '0';
+        }
+        //the problem is transition indices are not updated after merging and removing the merged items
+    }
 }
 
 int main(){
@@ -409,21 +473,21 @@ int main(){
     // }
     // printf("Enter start symbol: ");
     n = 3;
-    // prod[1].lhs = 'A';
-    // strcpy(prod[1].rhs, "BB");
-    // prod[2].lhs = 'B';
-    // strcpy(prod[2].rhs, "aB");
-    // prod[3].lhs = 'B';
-    // strcpy(prod[3].rhs, "b");
-    // char* start = "A";
-
-    prod[1].lhs = 'S';
-    strcpy(prod[1].rhs, "AB");
-    prod[2].lhs = 'A';
-    strcpy(prod[2].rhs, "a");
+    prod[1].lhs = 'A';
+    strcpy(prod[1].rhs, "BB");
+    prod[2].lhs = 'B';
+    strcpy(prod[2].rhs, "aB");
     prod[3].lhs = 'B';
     strcpy(prod[3].rhs, "b");
-    char* start = "S";
+    char* start = "A";
+
+    // prod[1].lhs = 'S';
+    // strcpy(prod[1].rhs, "AB");
+    // prod[2].lhs = 'A';
+    // strcpy(prod[2].rhs, "a");
+    // prod[3].lhs = 'B';
+    // strcpy(prod[3].rhs, "b");
+    // char* start = "S";
 
     //scanf(" %c", start);
     prod[0].lhs = 'Z';
@@ -433,4 +497,7 @@ int main(){
     // printItems();
     // printTransitions();
     createActionTable();
+    char str[MAX];
+    strcpy(str, "abab");
+    printf("\n%d", parse(str));
 }
