@@ -271,6 +271,23 @@ void init(){
     }
 }
 
+void updateTransitions(){
+    for(int i=0; i<n_transitions; i++){
+        for(int j=0; j<n_items; j++){
+            //printf("f-%d t-%d i-%d j-%d\n", transitions[i].from, transitions[i].to , items[j].index, j);
+            if(transitions[i].from == items[j].index){
+                transitions[i].from = j;
+                //printf("updated from\n");
+            }
+            if(transitions[i].to == items[j].index){
+                transitions[i].to = j;
+                //printf("updated to\n");
+            }
+        }
+        
+    }
+}
+
 void removeMergedItems(){
     ItemSet temp[MAX];
     int j = 0;
@@ -285,6 +302,7 @@ void removeMergedItems(){
     for(int i=0; i<n_items; i++){
         items[i] = temp[i];
     }
+    updateTransitions();
 }
 
 void getTermNonTerm(){
@@ -361,6 +379,7 @@ void printActionTable(char *term, int numStates) {
         }
         printf("\n");
     }
+    printf("\n");
 }
 
 void createActionTable(){
@@ -408,10 +427,11 @@ void printParseState(char *stack, int top, char *str, int lookahead) {
     for (int i = lookahead; str[i] != '\0'; i++) {
         printf("%c", str[i]);
     }
+    printf("\tAction: ");
+    int index = getIndex(str[lookahead]);
+    printf("%s %d", action[stack[top] - '0'][index].action, action[stack[top] - '0'][index].next);
 
     printf("\n");
-
-
 }
 
 int parse(char *str){
@@ -421,10 +441,10 @@ int parse(char *str){
     int len = strlen(str);
     str[len++] = '$';
     str[len] = '\0';
-    printf("%s %d\n", str, len);
     stack[top] = '$';
     stack[++top] = '0';
 
+    printf("Parsing:\n");
     while(lookahead < len){
         printParseState(stack, top, str, lookahead);
         char t = stack[top];
@@ -454,32 +474,44 @@ int parse(char *str){
             }
         }
         else if(isNonTerminal(t)){
-            printf("Non-terminal\n");
             int prev = top - 1;
             int index = getIndex(t);
-            printf("%c %d %s - %d\n", stack[prev], index, action[stack[prev] - '0'][index].action ,action[stack[prev] - '0'][index].next);
             stack[++top] = action[stack[prev] - '0'][index].next + '0';
         }
-        //the problem is transition indices are not updated after merging and removing the merged items
+    }
+}
+
+void lalr(char *str){
+    init();
+    removeMergedItems();
+    // printItems();
+    // printTransitions();
+    createActionTable();
+    if(parse(str)){
+        printf("\nString accepted\n");
+    }
+    else{
+        printf("\nString not accepted\n");
     }
 }
 
 int main(){
-    // printf("Enter the number of productions: ");
-    // scanf("%d", &n);
-    // printf("Enter the productions: \n");
-    // for(int i = 1; i <= n; i++){
-    //     scanf(" %c->%s", &prod[i].lhs, prod[i].rhs);
-    // }
-    // printf("Enter start symbol: ");
-    n = 3;
-    prod[1].lhs = 'A';
-    strcpy(prod[1].rhs, "BB");
-    prod[2].lhs = 'B';
-    strcpy(prod[2].rhs, "aB");
-    prod[3].lhs = 'B';
-    strcpy(prod[3].rhs, "b");
-    char* start = "A";
+    printf("Enter the number of productions: ");
+    scanf("%d", &n);
+    printf("Enter the productions: \n");
+    for(int i = 1; i <= n; i++){
+        scanf(" %c->%s", &prod[i].lhs, prod[i].rhs);
+    }
+    
+    //test productions
+    // n = 3;
+    // prod[1].lhs = 'A';
+    // strcpy(prod[1].rhs, "BB");
+    // prod[2].lhs = 'B';
+    // strcpy(prod[2].rhs, "aB");
+    // prod[3].lhs = 'B';
+    // strcpy(prod[3].rhs, "b");
+    // char* start = "A";
 
     // prod[1].lhs = 'S';
     // strcpy(prod[1].rhs, "AB");
@@ -489,15 +521,17 @@ int main(){
     // strcpy(prod[3].rhs, "b");
     // char* start = "S";
 
-    //scanf(" %c", start);
+    char *start;
+    printf("Enter start symbol: ");
+    scanf(" %c", start);
     prod[0].lhs = 'Z';
     strcpy(prod[0].rhs, start);
-    init();
-    removeMergedItems();
-    // printItems();
-    // printTransitions();
-    createActionTable();
+
     char str[MAX];
-    strcpy(str, "abab");
-    printf("\n%d", parse(str));
+    //strcpy(str, "abab");
+    printf("Enter the string to parse: ");
+    scanf("%s", str);
+    
+    lalr(str);
+    return 0;
 }
