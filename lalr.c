@@ -393,6 +393,7 @@ void createActionTable(){
         int index = getIndex(transitions[i].symbol);
         a.next = transitions[i].to;
         strcpy(a.action, "shift");
+        //check for conflicts
         action[transitions[i].from][index] = a;
     }
     
@@ -410,6 +411,13 @@ void createActionTable(){
                 else{
                     int p = getProdIndex(item);
                     a.next = p;
+                }
+                //check for conflicts
+                if(strcmp(action[i][index].action, "") != 0){
+                    printf("Conflict at state %d, symbol %c\n", i, term[index]);
+                    printf("Existing: %s %d\n", action[i][index].action, action[i][index].next);
+                    printf("New: %s %d\n", a.action, a.next);
+                    exit(0);
                 }
                 action[i][index] = a;
             }
